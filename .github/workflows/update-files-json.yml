@@ -24,6 +24,7 @@ jobs:
           cat files.txt | while read filename; do
             echo "\"$filename\"," >> files.json
           done
+          sed -i '$ s/,$//' files.json
           echo "]}" >> files.json
           git config --global user.name "Your Name"
           git config --global user.email "your-email@example.com"
