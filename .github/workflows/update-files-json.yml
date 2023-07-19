@@ -20,7 +20,7 @@ jobs:
 
       - name: Update files.json
         run: |
-          echo "{\"files\": [${{ steps.list-files.outputs.files | join(',') }}]}" > files.json
+          echo "{\"files\": [\"${{ steps.list-files.outputs.files }}\"]}" > files.json
           git config --global user.name "Your Name"
           git config --global user.email "your-email@example.com"
           git add files.json
