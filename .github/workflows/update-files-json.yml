@@ -1,0 +1,44 @@
+name: Update Files JSON
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update_files_json:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Find text files
+        id: find_files
+        run: |
+          text_files=$(find . -type f -name "*.txt")
+          echo "::set-output name=files::${text_files}"
+
+      - name: Update files.json
+        run: |
+          files=$(echo "${{ steps.find_files.outputs.files }}")
+          file_array=($files)
+          json="{\"files\": ["
+
+          for file in "${file_array[@]}"; do
+            filename=$(basename "$file")
+            json+="\"$filename\", "
+          done
+
+          json="${json%, }"
+          json+="]}"
+
+          echo "$json" > files.json
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add files.json
+          git commit -m "Update files.json"
+          git push
