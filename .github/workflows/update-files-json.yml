@@ -6,27 +6,26 @@ on:
       - main
 
 jobs:
-  update_files_json:
+  update-files-json:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: '16'
+          node-version: '14'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Update Files JSON
-        run: npm run update-files-json
-
-      - name: Commit and push changes
+      - name: Update files.json
         run: |
+          node scripts/update-files-json.js
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git commit -a -m "Update files.json" || true
+          git add files.json
+          git commit -m "Update files.json" || echo "No changes to commit"
           git push
