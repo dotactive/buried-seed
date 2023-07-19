@@ -16,11 +16,15 @@ jobs:
       - name: List text files
         id: list-files
         run: |
-          echo "::set-output name=files::$(find . -name '*.txt' -type f -printf '%f\n')"
+          ls -d ./*.txt | sed -e "s/^.\///" > files.txt
 
       - name: Update files.json
         run: |
-          echo "{\"files\": [\"${{ join(steps.list-files.outputs.files, '", "') }}\"]}" > files.json
+          echo "{\"files\": [" > files.json
+          cat files.txt | while read filename; do
+            echo "\"$filename\"," >> files.json
+          done
+          echo "]}" >> files.json
           git config --global user.name "Your Name"
           git config --global user.email "your-email@example.com"
           git add files.json
