@@ -1,0 +1,101 @@
+name: Sync CN and TW Translations
+
+on:
+  push:
+    paths:
+      - 'cn/*.txt'
+      - 'tw/*.txt'
+
+jobs:
+  sync-translations:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install opencc-js
+
+      - name: Detect changed files
+        id: changes
+        run: |
+          CN_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^cn/.*\.txt$' || true)
+          TW_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^tw/.*\.txt$' || true)
+
+          echo "cn_changed=${CN_CHANGED}" >> $GITHUB_OUTPUT
+          echo "tw_changed=${TW_CHANGED}" >> $GITHUB_OUTPUT
+
+      - name: Convert CN to TW
+        if: steps.changes.outputs.cn_changed != ''
+        run: |
+          node - <<'EOF'
+          const OpenCC = require('opencc-js');
+          const fs = require('fs');
+          const path = require('path');
+
+          const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+          const changedFiles = process.env.CN_CHANGED.split('\n').filter(f => f);
+
+          changedFiles.forEach(file => {
+            const filename = path.basename(file);
+            const inputPath = path.join('cn', filename);
+            const translatedFilename = converter(filename);
+            const outputPath = path.join('tw', translatedFilename);
+
+            if (fs.existsSync(inputPath)) {
+              const content = fs.readFileSync(inputPath, 'utf8');
+              const converted = converter(content);
+              fs.writeFileSync(outputPath, converted, 'utf8');
+              console.log(`Converted CN to TW: ${filename} -> ${translatedFilename}`);
+            }
+          });
+          EOF
+        env:
+          CN_CHANGED: ${{ steps.changes.outputs.cn_changed }}
+
+      - name: Convert TW to CN
+        if: steps.changes.outputs.tw_changed != ''
+        run: |
+          node - <<'EOF'
+          const OpenCC = require('opencc-js');
+          const fs = require('fs');
+          const path = require('path');
+
+          const converter = OpenCC.Converter({ from: 'tw', to: 'cn' });
+          const changedFiles = process.env.TW_CHANGED.split('\n').filter(f => f);
+
+          changedFiles.forEach(file => {
+            const filename = path.basename(file);
+            const inputPath = path.join('tw', filename);
+            const translatedFilename = converter(filename);
+            const outputPath = path.join('cn', translatedFilename);
+
+            if (fs.existsSync(inputPath)) {
+              const content = fs.readFileSync(inputPath, 'utf8');
+              const converted = converter(content);
+              fs.writeFileSync(outputPath, converted, 'utf8');
+              console.log(`Converted TW to CN: ${filename} -> ${translatedFilename}`);
+            }
+          });
+          EOF
+        env:
+          TW_CHANGED: ${{ steps.changes.outputs.tw_changed }}
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add cn/*.txt tw/*.txt
+          if ! git diff --staged --quiet; then
+            git commit -m "Auto-sync translations between CN and TW"
+            git pull --rebase origin main
+            git push
+          fi

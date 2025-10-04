@@ -13,21 +13,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: List text files
-        id: list-files
-        run: |
-          ls -d ./*.txt | sed -e "s/^.\///" > files.txt
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Update files.json
+      - name: Update files.json for both folders
+        run: node scripts/update-files-json.js
+
+      - name: Commit and push changes
         run: |
-          echo "{\"files\": [" > files.json
-          cat files.txt | while read filename; do
-            echo "\"$filename\"," >> files.json
-          done
-          sed -i '$ s/,$//' files.json
-          echo "]}" >> files.json
-          git config --global user.name "Your Name"
-          git config --global user.email "your-email@example.com"
-          git add files.json
-          git commit -m "Update files.json" --quiet
-          git push origin main
+          git config --global user.name "rudy"
+          git config --global user.email "treble_l@hotmail.com"
+          git add cn/files.json tw/files.json
+          if ! git diff --staged --quiet; then
+            git commit -m "Update files.json in cn and tw folders" --quiet
+            git pull --rebase origin main
+            git push origin main
+          fi

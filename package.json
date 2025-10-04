@@ -1,3 +1,10 @@
-"scripts": {
-  "update-files-json": "node scripts/update-files-json.js"
+{
+  "name": "tn-professor",
+  "version": "1.0.0",
+  "scripts": {
+    "update-files-json": "node scripts/update-files-json.js"
+  },
+  "dependencies": {
+    "opencc-js": "^1.0.5"
+  }
 }
