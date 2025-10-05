@@ -2,7 +2,8 @@
   "name": "tn-professor",
   "version": "1.0.0",
   "scripts": {
-    "update-files-json": "node scripts/update-files-json.js"
+    "update-files-json": "node scripts/update-files-json.js",
+    "sync-tw": "node scripts/convert-to-traditional.js"
   },
   "dependencies": {
     "opencc-js": "^1.0.5"
