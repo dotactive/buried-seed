@@ -1,20 +1,22 @@
-name: Sync CN and TW Translations
+name: Sync Translations and Update Files
 
 on:
   push:
+    branches:
+      - main
     paths:
+      - 'en/*.txt'
       - 'cn/*.txt'
       - 'tw/*.txt'
+  workflow_dispatch:
 
 jobs:
-  sync-translations:
+  sync-and-update:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,54 +26,64 @@ jobs:
       - name: Install dependencies
         run: npm install opencc-js
 
-      - name: Detect changed files
-        id: changes
-        run: |
-          CN_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^cn/.*\.txt$' || true)
-          TW_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^tw/.*\.txt$' || true)
+      - name: Ensure tw directory exists
+        run: mkdir -p tw
 
-          echo "cn_changed=${CN_CHANGED}" >> $GITHUB_OUTPUT
-          echo "tw_changed=${TW_CHANGED}" >> $GITHUB_OUTPUT
-
-      - name: Sync CN to TW
-        if: steps.changes.outputs.cn_changed != ''
-        run: npm run sync-tw
-
-      - name: Convert TW to CN
-        if: steps.changes.outputs.tw_changed != ''
+      - name: Convert all CN to TW
         run: |
           node - <<'EOF'
           const OpenCC = require('opencc-js');
           const fs = require('fs');
           const path = require('path');
 
-          const converter = OpenCC.Converter({ from: 'tw', to: 'cn' });
-          const changedFiles = process.env.TW_CHANGED.split('\n').filter(f => f);
+          const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+          const cnDir = 'cn';
+          const twDir = 'tw';
 
-          changedFiles.forEach(file => {
-            const filename = path.basename(file);
-            const inputPath = path.join('tw', filename);
-            const translatedFilename = converter(filename);
-            const outputPath = path.join('cn', translatedFilename);
+          // Ensure tw directory exists
+          if (!fs.existsSync(twDir)) {
+            fs.mkdirSync(twDir, { recursive: true });
+          }
 
-            if (fs.existsSync(inputPath)) {
+          // Get all .txt files from cn directory
+          const files = fs.readdirSync(cnDir).filter(f => f.endsWith('.txt'));
+
+          console.log(`Found ${files.length} .txt files in ${cnDir}/`);
+
+          files.forEach(filename => {
+            try {
+              const inputPath = path.join(cnDir, filename);
               const content = fs.readFileSync(inputPath, 'utf8');
+
+              // Convert both filename and content
+              const translatedFilename = converter(filename);
               const converted = converter(content);
+
+              const outputPath = path.join(twDir, translatedFilename);
               fs.writeFileSync(outputPath, converted, 'utf8');
-              console.log(`Converted TW to CN: ${filename} -> ${translatedFilename}`);
+
+              console.log(`✓ Converted: ${filename} -> ${translatedFilename}`);
+            } catch (error) {
+              console.error(`✗ Error converting ${filename}:`, error.message);
+              process.exit(1);
             }
           });
+
+          console.log(`\nSuccessfully converted ${files.length} files from CN to TW`);
           EOF
-        env:
-          TW_CHANGED: ${{ steps.changes.outputs.tw_changed }}
+
+      - name: Update files.json for both folders
+        run: node scripts/update-files-json.js
 
       - name: Commit and push changes
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add cn/*.txt tw/*.txt
+          git config --global user.name "rudy"
+          git config --global user.email "treble_l@hotmail.com"
+          git add tw/*.txt en/files.json cn/files.json tw/files.json
           if ! git diff --staged --quiet; then
-            git commit -m "Auto-sync translations between CN and TW"
+            git commit -m "Auto-sync: Update translations and files.json" --quiet
             git pull --rebase origin main
-            git push
+            git push origin main
+          else
+            echo "No changes to commit"
           fi
